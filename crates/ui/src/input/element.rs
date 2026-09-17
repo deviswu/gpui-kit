@@ -1283,11 +1283,27 @@ impl TextElement {
                 .get(buffer_line)
                 .expect("line should exists in wrapper");
 
-            debug_assert_eq!(line_item.len(), line_text.len());
+            // The wrapper can lag one edit behind the text being laid out here.
+            // Seen while typing CJK text through an IME: the wrapper still records
+            // the 1-byte preedit while the line already holds the 3-byte committed
+            // character. Its `wrapped_lines` ranges are stale in that case, and
+            // slicing `line_text` with them panics — previously hidden behind a
+            // `debug_assert_eq!` in debug builds, and reached as a bad slice in
+            // release builds.
+            //
+            // So: when the two disagree, lay the line out as a single segment and
+            // let the next edit resync the accounting. `run_offset` below already
+            // advances by the real line length, so runs stay aligned.
+            let whole_line = 0..line_text.len();
+            let wrapped: &[Range<usize>] = if line_item.len() == line_text.len() {
+                &line_item.wrapped_lines
+            } else {
+                std::slice::from_ref(&whole_line)
+            };
 
             let mut wrapped_lines = SmallVec::with_capacity(1);
 
-            for range in &line_item.wrapped_lines {
+            for range in wrapped {
                 let line_runs = runs_for_range(runs, run_offset, &range);
                 let line_runs = if bg_segments.is_empty() {
                     line_runs
