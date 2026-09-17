@@ -145,6 +145,15 @@ impl RenderOnce for ResizablePanelGroup {
         container
             .id(self.id)
             .size_full()
+            // 让 group 在父 flex 的 main-axis 方向撑满（flex_basis:0 + grow:1）。
+            // 只靠 `size_full()`（width/height:100%）不行：在 taffy 里，父尺寸由 flex
+            // 分配时那个百分比解析不了，flex-basis:auto 会退回内容尺寸 —— 于是 panel
+            // 被内容撑破（预览一页 A4 高就把容器顶出去，底部的 shell 与状态栏被挤出
+            // 窗口、滚动也失效）。
+            .flex_1()
+            // 默认 `min-size: auto` 同样会按内容撑大、拒绝收缩，两个方向都要放开。
+            .min_h_0()
+            .min_w_0()
             .children(
                 self.children
                     .into_iter()

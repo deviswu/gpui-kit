@@ -891,12 +891,9 @@ impl TextElement {
         window: &mut Window,
     ) -> (Pixels, usize) {
         let total_lines = text.lines_len();
-        let line_number_len = match total_lines {
-            0..=9999 => 5,
-            10000..=99999 => 6,
-            100000..=999999 => 7,
-            _ => 8,
-        };
+        // 行号列宽按实际位数算。上游是 5/6/7/8 档固定值 —— 两位数文档也留 5 位宽，
+        // gutter 白占一大片。这里沿用本地一直用的写法，保持编辑器观感不变。
+        let line_number_len = total_lines.to_string().len().max(1);
 
         let mut line_number_width = if state.mode.line_number() {
             let empty_line_number = window.text_system().shape_line(
@@ -1600,7 +1597,9 @@ impl Element for TextElement {
         let is_empty = text.len() == 0;
         let placeholder = self.placeholder.clone();
 
-        let text_style = window.text_style();
+        // 用本轮 prepaint 开头抓到的那份 style，而不是重新问一次 `window.text_style()`：
+        // 中间可能已经被别的元素改过，两边不一致时行高/内边距会跟着跳。
+        let text_style = style.clone();
         let disabled = state.disabled;
         let dim = |color: Hsla| if disabled { color.opacity(0.5) } else { color };
         let fg = dim(text_style.color);
